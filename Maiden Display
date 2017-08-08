@@ -1,0 +1,155 @@
+--Made by Pattisaurus@ScrubBusters
+--Add any players who shouldn't ever be assigned here. Leave empty if everyone should be assigned
+aura_env.dontAssign = {
+    'Pattisaurus',
+}
+
+--Whether to only show your assignment or everyones assignment
+aura_env.all = false
+
+--DO NOT EDIT BELOW
+aura_env.test = false
+aura_env.groups = {"fel", "light"}
+aura_env.felIcon = "|TInterface/Icons/Spell_Fire_FelFireNova:15:15:0:-8|t"
+aura_env.lightIcon = "|TInterface/Icons/spell_paladin_lightofdawn:15:15:0:-8|t"
+
+local _,class = UnitClass("player")
+local color = RAID_CLASS_COLORS[class] and RAID_CLASS_COLORS[class].colorStr or "ffbbbbbb"
+
+aura_env.playerName = UnitName("player")
+aura_env.playerFormatted = string.format("%s%s%s%s", "|c", color, aura_env.playerName, "|r") 
+
+aura_env.setPlayerInfo = function(unit, spell)
+    local playerName = UnitName(unit)
+    
+    if aura_env.dontAssign then
+        for _, player in pairs(aura_env.dontAssign) do
+            if player == playerName then
+                return
+            end
+        end
+    end
+    
+    local role = UnitGroupRolesAssigned(unit)
+    
+    if role == "DAMAGER" then
+        role = aura_env.getDamageRole(unit)
+    end
+    
+    local insert = {name = playerName, assigned = false}
+    if role == "HEALER" then
+        table.insert(aura_env[spell].players.healer, insert)
+    elseif role == "MELEE" then
+        table.insert(aura_env[spell].players.melee, insert)
+    elseif role == "RANGED" then
+        table.insert(aura_env[spell].players.ranged, insert)
+    elseif "TANK" then
+        table.insert(aura_env[spell].players.tank, insert)
+    end
+end
+
+aura_env.getDamageRole = function(unit)
+    local class = UnitClass(unit)
+    local role = ""
+    
+    if class == "Hunter" 
+    or class == "Mage" 
+    or class == "Warlock" 
+    or class == "Priest" 
+    or class == "Druid" then
+        role = "RANGED"
+    elseif class == "Death Knight" 
+    or class == "Demon Hunter" 
+    or class == "Monk" 
+    or class == "Paladin" 
+    or class == "Rogue" 
+    or class == "Shaman" 
+    or class == "Warrior" then
+        role = "MELEE"
+    end
+    
+    return role
+end
+
+aura_env.laneAssign = function(role, lanes, team) 
+    if role == "healer" and not lanes.Inside then
+        return "Inside"
+    elseif role == "healer" and not lanes.Middle then
+        return "Middle"
+    elseif role == "healer" and not lanes.Outside then
+        return "Outside"
+    end
+    
+    
+    for lane, taken in pairs(lanes) do
+        if not taken then
+            return lane
+        end
+    end
+    
+    return ""
+end
+
+aura_env.felSpell = GetSpellInfo(235213)
+aura_env.lightSpell = GetSpellInfo(235240)
+
+aura_env.setSpellGroup = function(unit)    
+    
+    if UnitExists(unit) and not UnitIsDead(unit) then
+        if UnitDebuff(unit, aura_env.felSpell) then
+            aura_env.setPlayerInfo(unit, "fel")
+        elseif UnitDebuff(unit, aura_env.lightSpell) then
+            aura_env.setPlayerInfo(unit, "light")
+        end
+    end
+end
+
+aura_env.normalReset = function()
+    local soakInfo = function() 
+        return {
+            {team = "Wrong Side", required = 3, players = {}, 
+                prefer={"ranged", "healer", "tank", "melee"}, 
+                lanes = {Outside = false, Middle = false, Inside = false}
+            },
+            
+            {team = "Same Side", required = 3, players = {}, 
+                prefer={"melee", "tank", "ranged", "healer"}, 
+                lanes = {Outside = false, Middle = false, Inside = false}
+            },
+        }
+    end
+    
+    
+    local soakPlayers = function()
+        return {
+            ["Wrong Side"] = {},
+            ["Same Side"] = {},
+        }
+    end
+    
+    --The variable names are the wrong way around, but it doesnt matter...
+    aura_env.fel = { 
+        formattedName = string.format("%s%s%s", aura_env.lightIcon, "Light", aura_env.lightIcon),
+        players = {melee = {}, ranged = {}, healer = {}, tank = {}} ,
+        
+        ["soakInfo"] = soakInfo(),
+        
+        ["soakPlayers"] = soakPlayers()
+    }
+    
+    aura_env.light = { 
+        formattedName = string.format("%s%s%s", aura_env.felIcon, "Fel", aura_env.felIcon),
+        players = {melee = {}, ranged = {}, healer = {}, tank = {}},
+        
+        ["soakInfo"] = soakInfo(),
+        
+        ["soakPlayers"] = soakPlayers()
+    }
+end
+
+aura_env.reset = function()
+    aura_env.normalReset()
+end
+
+aura_env.reset()
+
