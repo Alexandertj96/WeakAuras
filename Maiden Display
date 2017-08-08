@@ -1,0 +1,84 @@
+--Made by Pattisaurus@ScrubBusters
+function()
+    if aura_env.last and (GetTime() - aura_env.last) < 1 then
+        return aura_env.display
+    end
+    
+    aura_env.last = GetTime()
+    
+    aura_env.reset()
+    
+    if #aura_env.fel.players == 0 then
+        for i=1, GetNumGroupMembers() do
+            aura_env.setSpellGroup("raid" .. i)
+        end
+    end
+    
+    local display = ""
+    local found = false
+    for _, group in pairs(aura_env.groups) do
+        
+        display = string.format("%s%s%s", display, aura_env[group].formattedName, "\n")
+        
+        for _, data in pairs(aura_env[group].soakInfo) do
+            local i = 0
+            for _, role in pairs(data.prefer) do
+                for _, playerData in pairs(aura_env[group].players[role]) do
+                    if  i < data.required then
+                        if not playerData.assigned then                            
+                            local lane = aura_env.laneAssign(role, data.lanes, data.team)
+                            data.lanes[lane] = true
+                            table.insert(
+                                aura_env[group].soakPlayers[data.team],
+                                {name = playerData.name, ["lane"] = lane}
+                            )
+                            
+                            playerData.assigned = true
+                            i = i + 1
+                        end
+                    else 
+                        break
+                    end 
+                end
+            end
+        end
+        
+        if aura_env.all then
+            for team, players in pairs(aura_env[group].soakPlayers) do
+                display = string.format("%s%s%s%s", display, "|cffbbbbbb",team, "|r\n")
+                for _, player in pairs(players) do
+                    
+                    if player.name == aura_env.playerName then
+                        display = string.format("%s%s%s%s%s", display, player.lane, ": ", aura_env.playerFormatted, "\n")
+                    else
+                        display = string.format("%s%s%s%s%s", display, player.lane, ": ", player.name, "\n") 
+                    end
+                end
+                
+                display = string.format("%s%s", display, "\n")
+            end
+        else 
+            for team, players in pairs(aura_env[group].soakPlayers) do
+                for _, player in pairs(players) do
+                    if player.name == aura_env.playerName then
+                        display = string.format("%s%s%s", team, "\n", player.lane)
+                        found = true
+                        break
+                    end
+                end
+            end
+        end
+        
+        if found then
+            break
+        end
+    end
+    
+    if not aura_env.all and not found then
+        display = "Free for all"
+    end
+    
+    aura_env.display = display
+    return display
+end
+
